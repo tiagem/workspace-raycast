@@ -1,13 +1,25 @@
+import { Keyboard } from "@raycast/api";
+
 export const STORAGE_KEY_ONBOARDING_COMPLETED = "workspace-onboarding-completed";
 export const STORAGE_KEY_WORKSPACES = "workspace-workspaces";
 export const STORAGE_KEY_PINNED_PROJECTS = "workspace-pinned-projects";
 export const STORAGE_KEY_APP = "workspace-default-app";
 export const STORAGE_KEY_WORKSPACE_APPS = "workspace-workspace-app";
 export const STORAGE_KEY_TERMINAL_APP = "workspace-terminal-app";
-export const STORAGE_KEY_SHOW_FZF_STATUS = "workspace-show-fzf-status";
 export const STORAGE_KEY_SHOW_GIT_STATUS = "workspace-show-git-status";
+export const STORAGE_KEY_SHOW_STASH_COUNT = "workspace-show-stash-count";
 export const STORAGE_KEY_SHOW_RECENT_PROJECTS = "workspace-show-recent-projects";
 export const STORAGE_KEY_RECENT_PROJECTS_COUNT = "workspace-recent-projects-count";
 export const STORAGE_KEY_RECENT_PROJECTS = "workspace-recent-projects";
-export const STORAGE_KEY_VIEW_MODE = "workspace-view-mode";
+export const STORAGE_KEY_PROJECTS_CACHE = "workspace-projects-cache";
+export const STORAGE_KEY_SCAN_DEPTH = "workspace-scan-depth";
+export const STORAGE_KEY_IGNORE_PATTERNS = "workspace-ignore-patterns";
+export const STORAGE_KEY_INCLUDE_NESTED = "workspace-include-nested";
+export const STORAGE_KEY_REQUIRE_MARKERS = "workspace-require-markers";
+export const STORAGE_KEY_USAGE_STATS = "workspace-usage-stats";
+export const STORAGE_KEY_TAGS = "workspace-tags";
+export const STORAGE_KEY_PROJECT_TAGS = "workspace-project-tags";
 export const DEFAULT_RECENT_PROJECTS_COUNT = 5;
+
+export const SHORTCUT_MOVE_UP: Keyboard.Shortcut = Keyboard.Shortcut.Common.MoveUp;
+export const SHORTCUT_MOVE_DOWN: Keyboard.Shortcut = Keyboard.Shortcut.Common.MoveDown;

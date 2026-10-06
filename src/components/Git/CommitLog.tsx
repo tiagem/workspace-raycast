@@ -1,24 +1,30 @@
-import { Action, ActionPanel, List } from "@raycast/api";
-import { useCachedPromise } from "@raycast/utils";
+import { Action, ActionPanel, Icon, Keyboard, List, showToast, Toast } from "@raycast/api";
+import { useEffect } from "react";
 
+import { useCachedPromise } from "@/hooks/useCachedPromise";
 import { Project } from "@/types";
-import { getCommitLog, getRemoteUrl } from "@/utils/git";
+import { commitBrowserUrl, getCommitLog, getRemoteUrl } from "@/utils/git";
 
 interface CommitLogProps {
   project: Project;
 }
 
 export default function CommitLog({ project }: CommitLogProps) {
-  const { data, isLoading } = useCachedPromise(
+  const { data, error, isLoading, revalidate } = useCachedPromise(
     async (path: string) => {
       const [commits, remoteUrl] = await Promise.all([getCommitLog(path), getRemoteUrl(path)]);
       return { commits, remoteUrl };
     },
     [project.fullPath],
-    {
-      initialData: { commits: [], remoteUrl: null },
-    },
   );
+
+  useEffect(() => {
+    if (!error || isLoading || !data?.commits.length) {
+      return;
+    }
+
+    void showToast({ message: error.message, style: Toast.Style.Failure, title: "Couldn't load commits" });
+  }, [data, error, isLoading]);
 
   return (
     <List
@@ -26,18 +32,34 @@ export default function CommitLog({ project }: CommitLogProps) {
       navigationTitle={`Commit Log - ${project.name}`}
       searchBarPlaceholder="Search commits..."
     >
-      {data.commits.map((commit) => (
+      {error && !isLoading && !data?.commits.length && (
+        <List.EmptyView
+          actions={
+            <ActionPanel>
+              <Action icon={Icon.ArrowClockwise} onAction={revalidate} title="Retry" />
+            </ActionPanel>
+          }
+          description={error.message}
+          title="Couldn't Load Commits"
+        />
+      )}
+      {(data?.commits ?? []).map((commit) => (
         <List.Item
           accessories={[{ text: commit.author, tooltip: "Author" }, { text: commit.relativeTime }]}
           actions={
             <ActionPanel>
-              {data.remoteUrl && (
-                <Action.OpenInBrowser title="Open Commit in Browser" url={`${data.remoteUrl}/commit/${commit.hash}`} />
+              {data?.remoteUrl && (
+                <Action.OpenInBrowser
+                  icon={Icon.Globe}
+                  title="Open Commit in Browser"
+                  url={commitBrowserUrl(data.remoteUrl, commit.hash)}
+                />
               )}
-              <Action.CopyToClipboard content={commit.hash} title="Copy Commit Hash" />
+              <Action.CopyToClipboard content={commit.hash} icon={Icon.CopyClipboard} title="Copy Commit Hash" />
               <Action.CopyToClipboard
                 content={commit.message}
-                shortcut={{ key: "c", modifiers: ["cmd", "shift"] }}
+                icon={Icon.CopyClipboard}
+                shortcut={Keyboard.Shortcut.Common.Copy}
                 title="Copy Commit Message"
               />
             </ActionPanel>

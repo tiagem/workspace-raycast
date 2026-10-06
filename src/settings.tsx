@@ -1,5 +1,10 @@
 import Settings from "@/components/Settings";
+import { WorkspaceProvider } from "@/hooks/useWorkspace";
 
 export default function Command() {
-  return <Settings />;
+  return (
+    <WorkspaceProvider>
+      <Settings />
+    </WorkspaceProvider>
+  );
 }

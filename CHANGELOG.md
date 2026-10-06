@@ -1,6 +1,16 @@
 # Changelog
 
-## [Initial Version] - {PR_MERGE_DATE}
+## [2.1.0] - {PR_MERGE_DATE}
+
+### Added
+
+- Full feature parity with workspace-vicinae: tags with per-project assignment and filtering, usage statistics, project discovery (scan depth, ignore patterns, marker detection, nested projects), README preview, stash count, and backup versioning.
+- Settings import accepts both Raycast (`bundleId`) and Vicinae (`id`) app backups.
+
+### Improved
+
+- Upgraded to Raycast API 2.x for Raycast 2.0 (Node 22 runtime, React 19): platform-aware common shortcuts, updated icons, and TypeScript 6 compatible configuration.
+- Terminal action falls back to the system Terminal when no terminal app is configured.
 
 ### Added
 

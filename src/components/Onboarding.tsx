@@ -1,11 +1,14 @@
-import { Action, ActionPanel, type Application, Color, Icon, List } from "@raycast/api";
-import { getProgressIcon } from "@raycast/utils";
+import { Action, ActionPanel, type Application, Color, Icon, Keyboard, List, showToast, Toast } from "@raycast/api";
+import path from "path";
+import { useMemo } from "react";
 
 import AddWorkspaceForm from "@/components/AddWorkspaceForm";
 import ImportSettingsForm from "@/components/ImportSettingsForm";
 import SelectEditor from "@/components/SelectEditor";
 import Settings from "@/components/Settings";
+import { useWorkspace } from "@/hooks/useWorkspace";
 import { App } from "@/types";
+import { suggestedWorkspacePaths } from "@/utils/suggestions";
 
 interface OnboardingProps {
   defaultApp: App | null;
@@ -24,10 +27,26 @@ export default function Onboarding({
   onSelectDefaultApp,
   workspaces,
 }: OnboardingProps) {
+  const { updateWorkspaces } = useWorkspace();
   const hasWorkspaces = workspaces.length > 0;
   const hasApp = !!defaultApp;
-  const isReady = hasWorkspaces && hasApp;
-  const nextStep = !hasWorkspaces ? "Add your first workspace" : !hasApp ? "Choose a default app" : "Finish onboarding";
+  const isReady = hasWorkspaces;
+  const nextStep = !hasWorkspaces ? "Add your first workspace" : "Finish onboarding";
+  const suggestions = useMemo(() => suggestedWorkspacePaths(workspaces), [workspaces]);
+
+  const addSuggested = async (workspacePath: string) => {
+    if (workspaces.includes(workspacePath)) {
+      return;
+    }
+
+    await updateWorkspaces([...workspaces, workspacePath]);
+    await loadData();
+    await showToast({
+      message: path.basename(workspacePath),
+      style: Toast.Style.Success,
+      title: "Workspace Added",
+    });
+  };
 
   return (
     <List navigationTitle="Workspace Onboarding">
@@ -36,76 +55,30 @@ export default function Onboarding({
           actions={
             <ActionPanel>
               <ActionPanel.Section title="Next Step">
-                {!hasWorkspaces && (
-                  <Action.Push
-                    icon={Icon.Folder}
-                    shortcut={{ key: "n", modifiers: ["cmd"] }}
-                    target={<AddWorkspaceForm />}
-                    title="Add Workspace"
-                  />
-                )}
-                {hasWorkspaces && !hasApp && (
-                  <Action.Push
-                    icon={Icon.AppWindow}
-                    shortcut={{ key: "e", modifiers: ["cmd"] }}
-                    target={<SelectEditor onSelect={onSelectDefaultApp} />}
-                    title="Select Default App"
-                  />
-                )}
+                {!hasWorkspaces && <AddWorkspaceAction loadData={loadData} />}
                 {isReady && <Action icon={Icon.Check} onAction={onComplete} title="Finish Onboarding" />}
               </ActionPanel.Section>
               <ActionPanel.Section title="Setup Actions">
-                <Action.Push
-                  icon={Icon.Folder}
-                  onPop={loadData}
-                  shortcut={{ key: "n", modifiers: ["cmd"] }}
-                  target={<AddWorkspaceForm />}
-                  title="Add Workspace"
-                />
-                <Action.Push
-                  icon={Icon.AppWindow}
-                  shortcut={{ key: "e", modifiers: ["cmd"] }}
-                  target={<SelectEditor onSelect={onSelectDefaultApp} />}
-                  title="Select Default App"
-                />
+                <AddWorkspaceAction loadData={loadData} />
+                <SelectAppAction onSelect={onSelectDefaultApp} title="Select Default App" />
               </ActionPanel.Section>
-              <ActionPanel.Section title="Navigation">
-                <Action.Push
-                  icon={Icon.Gear}
-                  shortcut={{ key: ".", modifiers: ["cmd", "shift"] }}
-                  target={<Settings onWorkspacesChanged={loadData} />}
-                  title="Open Settings"
-                />
-              </ActionPanel.Section>
+              <OpenSettingsAction loadData={loadData} />
             </ActionPanel>
           }
           icon={Icon.Info}
-          subtitle={`Next step: ${nextStep}. You can always change these later in Settings.`}
+          subtitle={`Next step: ${nextStep}. A default app is optional and can be set later in Settings.`}
           title="Setup Guide"
         />
         <List.Item
           actions={
             <ActionPanel>
               <ActionPanel.Section title="Workspace">
-                <Action.Push
-                  icon={Icon.Folder}
-                  onPop={loadData}
-                  shortcut={{ key: "n", modifiers: ["cmd"] }}
-                  target={<AddWorkspaceForm />}
-                  title="Add Workspace"
-                />
+                <AddWorkspaceAction loadData={loadData} />
               </ActionPanel.Section>
-              <ActionPanel.Section title="Navigation">
-                <Action.Push
-                  icon={Icon.Gear}
-                  shortcut={{ key: ".", modifiers: ["cmd", "shift"] }}
-                  target={<Settings onWorkspacesChanged={loadData} />}
-                  title="Open Settings"
-                />
-              </ActionPanel.Section>
+              <OpenSettingsAction loadData={loadData} />
             </ActionPanel>
           }
-          icon={getProgressIcon(hasWorkspaces ? 1 : 0, Color.Green)}
+          icon={stepIcon(hasWorkspaces)}
           subtitle={
             hasWorkspaces
               ? `${workspaces.length} workspace${workspaces.length > 1 ? "s" : ""} added`
@@ -117,27 +90,18 @@ export default function Onboarding({
           actions={
             <ActionPanel>
               <ActionPanel.Section title="Application">
-                <Action.Push
-                  icon={Icon.AppWindow}
-                  onPop={loadData}
-                  shortcut={{ key: "e", modifiers: ["cmd"] }}
-                  target={<SelectEditor onSelect={onSelectDefaultApp} />}
-                  title="Select App"
-                />
+                <SelectAppAction onSelect={onSelectDefaultApp} />
               </ActionPanel.Section>
-              <ActionPanel.Section title="Navigation">
-                <Action.Push
-                  icon={Icon.Gear}
-                  shortcut={{ key: ".", modifiers: ["cmd", "shift"] }}
-                  target={<Settings onWorkspacesChanged={loadData} />}
-                  title="Open Settings"
-                />
-              </ActionPanel.Section>
+              <OpenSettingsAction loadData={loadData} />
             </ActionPanel>
           }
-          icon={getProgressIcon(hasApp ? 1 : 0, Color.Green)}
-          subtitle={hasApp ? `Selected: ${defaultApp.name}` : "Choose which app opens your projects"}
-          title="2. Default App"
+          icon={stepIcon(hasApp)}
+          subtitle={
+            hasApp
+              ? `Selected: ${defaultApp.name}`
+              : "Optional. Choose which app opens your projects, or skip and finish."
+          }
+          title="2. Default App (optional)"
         />
         {isReady && (
           <List.Item
@@ -146,14 +110,7 @@ export default function Onboarding({
                 <ActionPanel.Section title="Complete">
                   <Action icon={Icon.Check} onAction={onComplete} title="Finish Onboarding" />
                 </ActionPanel.Section>
-                <ActionPanel.Section title="Navigation">
-                  <Action.Push
-                    icon={Icon.Gear}
-                    shortcut={{ key: ".", modifiers: ["cmd", "shift"] }}
-                    target={<Settings onWorkspacesChanged={loadData} />}
-                    title="Open Settings"
-                  />
-                </ActionPanel.Section>
+                <OpenSettingsAction loadData={loadData} />
               </ActionPanel>
             }
             icon={{ source: Icon.CheckCircle, tintColor: Color.Green }}
@@ -162,6 +119,24 @@ export default function Onboarding({
           />
         )}
       </List.Section>
+      {suggestions.length > 0 ? (
+        <List.Section title="Suggested Folders">
+          {suggestions.map((suggestion) => (
+            <List.Item
+              actions={
+                <ActionPanel>
+                  <Action icon={Icon.Plus} onAction={() => addSuggested(suggestion)} title="Add Workspace" />
+                  <AddWorkspaceAction loadData={loadData} />
+                </ActionPanel>
+              }
+              icon={Icon.Folder}
+              key={suggestion}
+              subtitle={suggestion}
+              title={path.basename(suggestion)}
+            />
+          ))}
+        </List.Section>
+      ) : null}
       <List.Section title="Import Existing Setup">
         <List.Item
           actions={
@@ -173,14 +148,7 @@ export default function Onboarding({
                   title="Import Settings File"
                 />
               </ActionPanel.Section>
-              <ActionPanel.Section title="Navigation">
-                <Action.Push
-                  icon={Icon.Gear}
-                  shortcut={{ key: ".", modifiers: ["cmd", "shift"] }}
-                  target={<Settings onWorkspacesChanged={loadData} />}
-                  title="Open Settings"
-                />
-              </ActionPanel.Section>
+              <OpenSettingsAction loadData={loadData} />
             </ActionPanel>
           }
           icon={Icon.Upload}
@@ -190,4 +158,49 @@ export default function Onboarding({
       </List.Section>
     </List>
   );
+}
+
+function AddWorkspaceAction({ loadData }: { loadData: () => Promise<void> }) {
+  return (
+    <Action.Push
+      icon={Icon.Folder}
+      shortcut={Keyboard.Shortcut.Common.New}
+      target={<AddWorkspaceForm onDone={loadData} />}
+      title="Add Workspace"
+    />
+  );
+}
+
+function OpenSettingsAction({ loadData }: { loadData: () => Promise<void> }) {
+  return (
+    <ActionPanel.Section title="Navigation">
+      <Action.Push
+        icon={Icon.Cog}
+        shortcut={{ key: ",", modifiers: ["cmd", "shift"] }}
+        target={<Settings onWorkspacesChanged={loadData} />}
+        title="Open Settings"
+      />
+    </ActionPanel.Section>
+  );
+}
+
+function SelectAppAction({
+  onSelect,
+  title = "Select App",
+}: {
+  onSelect: (app: Application) => Promise<void>;
+  title?: string;
+}) {
+  return (
+    <Action.Push
+      icon={Icon.AppWindow}
+      shortcut={Keyboard.Shortcut.Common.Edit}
+      target={<SelectEditor onSelect={onSelect} />}
+      title={title}
+    />
+  );
+}
+
+function stepIcon(done: boolean) {
+  return done ? { source: Icon.CheckCircle, tintColor: Color.Green } : Icon.Circle;
 }

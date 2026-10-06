@@ -5,7 +5,7 @@
   "description": "Manage and access your workspace projects directly from Raycast. Boost your focus with quick project opening, git status tracking, and customizable application overrides.",
   "icon": "extension-icon.png",
   "author": "tiagemiguel",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "license": "MIT",
   "platforms": [
     "macOS"
@@ -42,11 +42,11 @@
     }
   ],
   "dependencies": {
-    "@raycast/api": "^1.104.13",
-    "@raycast/utils": "^2.2.4"
+    "@raycast/api": "^2.6.3",
+    "@raycast/utils": "^2.3.2"
   },
   "devDependencies": {
-    "@raycast/eslint-config": "^2.1.1",
+    "@raycast/eslint-config": "^2.2.0",
     "@types/node": "25.6.0",
     "@types/react": "^19.2.14",
     "eslint": "^10.2.1",

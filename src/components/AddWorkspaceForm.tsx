@@ -1,80 +1,109 @@
-import { Action, ActionPanel, Form, popToRoot, showToast, Toast, useNavigation } from "@raycast/api";
-import { FormValidation, useForm } from "@raycast/utils";
+import { Action, ActionPanel, Form, Icon, popToRoot, showToast, Toast, useNavigation } from "@raycast/api";
 import path from "path";
+import { useMemo, useState } from "react";
 
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { isExistingDirectory, pathFromFormValue } from "@/utils/paths";
+import { suggestedWorkspacePaths } from "@/utils/suggestions";
 
 interface AddWorkspaceFormProps {
-  onDone?: () => void;
-}
-
-interface FormValues {
-  workspace: string[];
+  onDone?: () => Promise<void> | void;
 }
 
 export default function AddWorkspaceForm({ onDone }: AddWorkspaceFormProps) {
   const { pop } = useNavigation();
   const { updateWorkspaces, workspaces } = useWorkspace();
+  const [error, setError] = useState<string | undefined>();
+  const suggestions = useMemo(() => suggestedWorkspacePaths(workspaces), [workspaces]);
 
-  const { handleSubmit, itemProps } = useForm<FormValues>({
-    async onSubmit(values) {
-      const workspacePath = path.resolve(values.workspace[0]);
+  async function addWorkspace(workspacePath: string) {
+    if (!isExistingDirectory(workspacePath)) {
+      setError("Folder not found");
+      await showToast({
+        message: workspacePath,
+        style: Toast.Style.Failure,
+        title: "Folder not found",
+      });
+      return;
+    }
 
-      if (workspaces.includes(workspacePath)) {
-        await showToast({
-          message: path.basename(workspacePath),
-          style: Toast.Style.Failure,
-          title: "Workspace already added",
-        });
-
-        return;
-      }
-
-      const newWorkspaces = [...workspaces, workspacePath];
-
-      await updateWorkspaces(newWorkspaces);
+    if (workspaces.includes(workspacePath)) {
       await showToast({
         message: path.basename(workspacePath),
-        style: Toast.Style.Success,
-        title: "Workspace Added",
+        style: Toast.Style.Failure,
+        title: "Workspace already added",
       });
+      return;
+    }
 
-      if (onDone) {
-        onDone();
-      } else {
-        try {
-          pop();
-        } catch {
-          popToRoot();
-        }
-      }
-    },
-    validation: {
-      workspace: FormValidation.Required,
-    },
-  });
+    await updateWorkspaces([...workspaces, workspacePath]);
+    await showToast({
+      message: path.basename(workspacePath),
+      style: Toast.Style.Success,
+      title: "Workspace Added",
+    });
+
+    if (onDone) {
+      await onDone();
+    }
+
+    try {
+      pop();
+    } catch {
+      popToRoot();
+    }
+  }
+
+  async function handleSubmit(values: Form.Values) {
+    const workspacePath = pathFromFormValue(values.workspace);
+    if (!workspacePath) {
+      setError("Required");
+      return;
+    }
+
+    await addWorkspace(workspacePath);
+  }
 
   return (
     <Form
       actions={
         <ActionPanel>
           <ActionPanel.Section title="Workspace">
-            <Action.SubmitForm onSubmit={handleSubmit} title="Add Workspace" />
+            <Action.SubmitForm icon={Icon.Folder} onSubmit={handleSubmit} title="Add Workspace" />
           </ActionPanel.Section>
+          {suggestions.length > 0 ? (
+            <ActionPanel.Section title="Suggestions">
+              {suggestions.map((suggestion) => (
+                <Action
+                  icon={Icon.Folder}
+                  key={suggestion}
+                  onAction={() => addWorkspace(suggestion)}
+                  title={`Add ${path.basename(suggestion)}`}
+                />
+              ))}
+            </ActionPanel.Section>
+          ) : null}
         </ActionPanel>
       }
       navigationTitle="Add Workspace"
     >
       <Form.Description
-        text="Select a parent folder (workspace) that contains your projects. You can manage your workspaces later in the extension settings."
+        text="Pick a parent folder that contains your projects. Scan depth and ignore patterns in Settings control what is listed."
         title="How It Works"
       />
+      {suggestions.length > 0 ? (
+        <Form.Description
+          text={`Found on this machine: ${suggestions.map((suggestion) => path.basename(suggestion)).join(", ")}. Use the action panel to add one quickly.`}
+          title="Suggestions"
+        />
+      ) : null}
       <Form.FilePicker
-        allowMultipleSelection={false}
         canChooseDirectories
         canChooseFiles={false}
-        title="Workspace"
-        {...itemProps.workspace}
+        error={error}
+        id="workspace"
+        onChange={() => setError(undefined)}
+        title="Workspace Folder"
       />
     </Form>
   );

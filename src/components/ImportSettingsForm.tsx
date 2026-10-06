@@ -1,45 +1,61 @@
-import { Action, ActionPanel, Form, useNavigation } from "@raycast/api";
-import { FormValidation, useForm } from "@raycast/utils";
+import { Action, ActionPanel, Form, Icon, showToast, Toast, useNavigation } from "@raycast/api";
+import { useState } from "react";
+
+import { isExistingFile, pathFromFormValue } from "@/utils/paths";
 
 interface ImportSettingsFormProps {
   onImport: (filePath: string) => Promise<boolean>;
 }
 
-interface ImportSettingsFormValues {
-  file: string[];
-}
-
 export default function ImportSettingsForm({ onImport }: ImportSettingsFormProps) {
   const { pop } = useNavigation();
-  const { handleSubmit, itemProps } = useForm<ImportSettingsFormValues>({
-    async onSubmit(values) {
-      const imported = await onImport(values.file[0]);
-      if (imported) {
-        pop();
-      }
-    },
-    validation: {
-      file: FormValidation.Required,
-    },
-  });
+  const [error, setError] = useState<string | undefined>();
+
+  async function handleSubmit(values: Form.Values) {
+    const filePath = pathFromFormValue(values.file);
+    if (!filePath) {
+      setError("Required");
+      return;
+    }
+
+    if (!isExistingFile(filePath)) {
+      setError("File not found");
+      await showToast({
+        message: filePath,
+        style: Toast.Style.Failure,
+        title: "Settings file not found",
+      });
+      return;
+    }
+
+    const imported = await onImport(filePath);
+    if (imported) {
+      pop();
+    }
+  }
 
   return (
     <Form
       actions={
         <ActionPanel>
           <ActionPanel.Section title="Import">
-            <Action.SubmitForm onSubmit={handleSubmit} title="Import Settings" />
+            <Action.SubmitForm icon={Icon.Upload} onSubmit={handleSubmit} title="Import Settings" />
           </ActionPanel.Section>
         </ActionPanel>
       }
       navigationTitle="Import Settings"
     >
+      <Form.Description
+        text="Pick a JSON backup exported from this extension. Workspaces, apps, pins, recents, and other settings are restored."
+        title="How to Import"
+      />
       <Form.FilePicker
-        allowMultipleSelection={false}
         canChooseDirectories={false}
         canChooseFiles
+        error={error}
+        id="file"
+        onChange={() => setError(undefined)}
         title="Settings File"
-        {...itemProps.file}
       />
     </Form>
   );

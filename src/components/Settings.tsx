@@ -1,11 +1,13 @@
-import { List } from "@raycast/api";
+import { Action, ActionPanel, Icon, List } from "@raycast/api";
 
+import DiscoverySettings from "@/components/Settings/DiscoverySettings";
 import GeneralSettings from "@/components/Settings/GeneralSettings";
-import IntegrationSettings from "@/components/Settings/IntegrationSettings";
+import GitSettings from "@/components/Settings/GitSettings";
 import ManagedWorkspacesSection from "@/components/Settings/ManagedWorkspacesSection";
 import RecentProjectsSettings from "@/components/Settings/RecentProjectsSettings";
+import StatsSettings from "@/components/Settings/StatsSettings";
+import TagsSettings from "@/components/Settings/TagsSettings";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { exportSettingsToDownloads, importSettingsFromFile } from "@/utils/storage";
 
 interface SettingsProps {
   onWorkspacesChanged?: () => Promise<void>;
@@ -14,121 +16,139 @@ interface SettingsProps {
 
 export default function Settings({ onWorkspacesChanged, showGeneral = true }: SettingsProps) {
   const {
-    applyImportedSettings,
+    clearUsageStats,
     defaultApp,
-    fzfAvailable,
+    exportSettings,
     gitAvailable,
+    ignorePatterns,
+    importSettings,
+    includeNested,
     loadData,
-    onboardingCompleted,
-    pinnedProjects,
-    recentProjects,
+    projects,
+    projectTags,
     recentProjectsCount,
-    showFzfStatus,
+    requireMarkers,
+    resetExtension,
+    scanDepth,
     showGitStatus,
     showRecentProjects,
+    showStashCount,
+    tags,
     terminalApp,
     updateDefaultApp,
+    updateIgnorePatterns,
+    updateIncludeNested,
     updateRecentProjectsCount,
-    updateShowFzfStatus,
+    updateRequireMarkers,
+    updateScanDepth,
     updateShowGitStatus,
     updateShowRecentProjects,
+    updateShowStashCount,
     updateTerminalApp,
-    updateViewMode,
     updateWorkspaceApps,
     updateWorkspaces,
-    viewMode,
+    usageSnapshot,
     workspaceApps,
     workspaces,
   } = useWorkspace();
 
-  async function handleExportSettings() {
-    await exportSettingsToDownloads({
-      defaultApp,
-      onboardingCompleted,
-      pinnedProjects,
-      recentProjects,
-      recentProjectsCount,
-      showFzfStatus,
-      showGitStatus,
-      showRecentProjects,
-      terminalApp,
-      viewMode,
-      workspaceApps,
-      workspaces,
-    });
+  if (!showGeneral) {
+    return (
+      <List isShowingDetail navigationTitle="Manage Your Workspaces" searchBarPlaceholder="Search for workspaces...">
+        <ManagedWorkspacesSection
+          loadData={loadData}
+          onWorkspacesChanged={onWorkspacesChanged}
+          updateWorkspaceApps={updateWorkspaceApps}
+          updateWorkspaces={updateWorkspaces}
+          workspaceApps={workspaceApps}
+          workspaces={workspaces}
+        />
+      </List>
+    );
   }
 
-  async function handleImportSettings(filePath: string): Promise<boolean> {
-    const fallback = {
-      defaultApp,
-      onboardingCompleted,
-      pinnedProjects,
-      recentProjects,
-      recentProjectsCount,
-      showFzfStatus,
-      showGitStatus,
-      showRecentProjects,
-      terminalApp,
-      viewMode,
-      workspaceApps,
-      workspaces,
-    };
-
-    const importedSettings = await importSettingsFromFile(filePath, fallback);
-    if (!importedSettings) return false;
-
-    await applyImportedSettings(importedSettings);
-
-    if (onWorkspacesChanged) {
-      await onWorkspacesChanged();
-    }
-
-    return true;
-  }
+  const workspaceCount = workspaces.length;
+  const workspaceSummary =
+    workspaceCount === 0 ? "None added" : `${workspaceCount} workspace${workspaceCount === 1 ? "" : "s"}`;
+  const gitRepoCount = projects.filter((project) => project.isGitRepo || project.gitStatus != null).length;
 
   return (
-    <List
-      navigationTitle={showGeneral ? "Workspace Settings" : "Manage Your Workspaces"}
-      searchBarPlaceholder={showGeneral ? "Search settings..." : "Search for workspaces..."}
-    >
-      {showGeneral && (
-        <>
-          <GeneralSettings
-            defaultApp={defaultApp}
-            onExportSettings={handleExportSettings}
-            onImportSettings={handleImportSettings}
-            terminalApp={terminalApp}
-            updateDefaultApp={updateDefaultApp}
-            updateTerminalApp={updateTerminalApp}
-            updateViewMode={updateViewMode}
-            viewMode={viewMode}
-          />
-          <RecentProjectsSettings
-            recentProjectsCount={recentProjectsCount}
-            showRecentProjects={showRecentProjects}
-            updateRecentProjectsCount={updateRecentProjectsCount}
-            updateShowRecentProjects={updateShowRecentProjects}
-          />
-          <IntegrationSettings
-            fzfAvailable={fzfAvailable}
-            gitAvailable={gitAvailable}
-            onWorkspacesChanged={onWorkspacesChanged}
-            showFzfStatus={showFzfStatus}
-            showGitStatus={showGitStatus}
-            updateShowFzfStatus={updateShowFzfStatus}
-            updateShowGitStatus={updateShowGitStatus}
-          />
-        </>
-      )}
-
-      <ManagedWorkspacesSection
-        loadData={loadData}
-        onWorkspacesChanged={onWorkspacesChanged}
-        updateWorkspaceApps={updateWorkspaceApps}
-        updateWorkspaces={updateWorkspaces}
-        workspaceApps={workspaceApps}
-        workspaces={workspaces}
-      />
+    <List isShowingDetail navigationTitle="Workspace Settings" searchBarPlaceholder="Search settings...">
+      <List.Section subtitle="Apps, backup and reset" title="General">
+        <GeneralSettings
+          defaultApp={defaultApp}
+          onExportSettings={exportSettings}
+          onImportSettings={importSettings}
+          onResetExtension={resetExtension}
+          terminalApp={terminalApp}
+          updateDefaultApp={updateDefaultApp}
+          updateTerminalApp={updateTerminalApp}
+        />
+      </List.Section>
+      <List.Section subtitle="Scan depth, markers and folders" title="Discovery">
+        <DiscoverySettings
+          ignorePatterns={ignorePatterns}
+          includeNested={includeNested}
+          onChanged={onWorkspacesChanged ?? loadData}
+          requireMarkers={requireMarkers}
+          scanDepth={scanDepth}
+          updateIgnorePatterns={updateIgnorePatterns}
+          updateIncludeNested={updateIncludeNested}
+          updateRequireMarkers={updateRequireMarkers}
+          updateScanDepth={updateScanDepth}
+        />
+        <List.Item
+          actions={
+            <ActionPanel>
+              <Action.Push
+                icon={Icon.Folder}
+                target={<Settings onWorkspacesChanged={onWorkspacesChanged} showGeneral={false} />}
+                title="Manage Workspaces"
+              />
+            </ActionPanel>
+          }
+          detail={
+            <List.Item.Detail
+              markdown="Add, remove, and reorder parent folders. You can also set a different app for each workspace."
+              metadata={
+                <List.Item.Detail.Metadata>
+                  <List.Item.Detail.Metadata.Label text={workspaceSummary} title="Workspaces" />
+                </List.Item.Detail.Metadata>
+              }
+            />
+          }
+          icon={Icon.Folder}
+          id="workspaces"
+          keywords={["folder", "directory", "manage"]}
+          title="Workspaces"
+        />
+      </List.Section>
+      <List.Section subtitle="Recents, git status and tags" title="Projects">
+        <RecentProjectsSettings
+          recentProjectsCount={recentProjectsCount}
+          showRecentProjects={showRecentProjects}
+          updateRecentProjectsCount={updateRecentProjectsCount}
+          updateShowRecentProjects={updateShowRecentProjects}
+        />
+        <GitSettings
+          gitAvailable={gitAvailable}
+          onWorkspacesChanged={onWorkspacesChanged}
+          showGitStatus={showGitStatus}
+          showStashCount={showStashCount}
+          updateShowGitStatus={updateShowGitStatus}
+          updateShowStashCount={updateShowStashCount}
+        />
+        <TagsSettings projectTags={projectTags} tags={tags} />
+      </List.Section>
+      <List.Section subtitle="Usage and totals" title="Insights">
+        <StatsSettings
+          gitRepoCount={gitRepoCount}
+          onClearUsage={clearUsageStats}
+          projectCount={projects.length}
+          snapshot={usageSnapshot}
+          workspaceCount={workspaceCount}
+        />
+      </List.Section>
     </List>
   );
 }

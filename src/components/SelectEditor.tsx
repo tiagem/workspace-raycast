@@ -1,6 +1,17 @@
-import { Action, ActionPanel, Icon, List, useNavigation } from "@raycast/api";
-import { type Application, getApplications } from "@raycast/api";
-import { usePromise } from "@raycast/utils";
+import {
+  Action,
+  ActionPanel,
+  type Application,
+  getApplications,
+  Icon,
+  List,
+  showToast,
+  Toast,
+  useNavigation,
+} from "@raycast/api";
+import { useEffect } from "react";
+
+import { useCachedPromise } from "@/hooks/useCachedPromise";
 
 interface SelectEditorProps {
   onReset?: () => void;
@@ -9,7 +20,15 @@ interface SelectEditorProps {
 
 export default function SelectEditor({ onReset, onSelect }: SelectEditorProps) {
   const { pop } = useNavigation();
-  const { data: apps, isLoading } = usePromise(getApplications);
+  const { data: apps, error, isLoading, revalidate } = useCachedPromise(() => getApplications(), []);
+
+  useEffect(() => {
+    if (!error || isLoading || !apps?.length) {
+      return;
+    }
+
+    void showToast({ message: error.message, style: Toast.Style.Failure, title: "Couldn't load applications" });
+  }, [apps, error, isLoading]);
 
   const handleSelect = async (app: Application) => {
     await onSelect(app);
@@ -24,14 +43,28 @@ export default function SelectEditor({ onReset, onSelect }: SelectEditorProps) {
     pop();
   };
 
+  const showError = Boolean(error && !isLoading && !apps?.length);
+
   return (
     <List isLoading={isLoading} navigationTitle="Select App" searchBarPlaceholder="Search for an app...">
-      {onReset && (
+      {showError && (
+        <List.EmptyView
+          actions={
+            <ActionPanel>
+              <Action icon={Icon.ArrowClockwise} onAction={revalidate} title="Retry" />
+              {onReset && <Action icon={Icon.ArrowCounterClockwise} onAction={handleReset} title="Reset to Default" />}
+            </ActionPanel>
+          }
+          description={error?.message}
+          title="Couldn't Load Applications"
+        />
+      )}
+      {!showError && onReset && (
         <List.Item
           actions={
             <ActionPanel>
               <ActionPanel.Section title="Default">
-                <Action onAction={handleReset} title="Reset to Default" />
+                <Action icon={Icon.ArrowCounterClockwise} onAction={handleReset} title="Reset to Default" />
               </ActionPanel.Section>
             </ActionPanel>
           }
@@ -50,7 +83,7 @@ export default function SelectEditor({ onReset, onSelect }: SelectEditorProps) {
             </ActionPanel>
           }
           icon={{ fileIcon: app.path }}
-          key={app.bundleId || app.path}
+          key={app.bundleId ?? app.path}
           title={app.name}
         />
       ))}

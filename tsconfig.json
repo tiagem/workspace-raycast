@@ -9,6 +9,8 @@
       "ES2023"
     ],
     "module": "commonjs",
+    "moduleResolution": "node",
+    "ignoreDeprecations": "6.0",
     "target": "ES2022",
     "strict": true,
     "isolatedModules": true,
@@ -17,10 +19,12 @@
     "forceConsistentCasingInFileNames": true,
     "jsx": "react-jsx",
     "resolveJsonModule": true,
-    "baseUrl": ".",
+    "types": [
+      "node"
+    ],
     "paths": {
       "@/*": [
-        "src/*"
+        "./src/*"
       ]
     }
   }
